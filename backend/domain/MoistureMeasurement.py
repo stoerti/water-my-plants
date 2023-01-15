@@ -1,7 +1,7 @@
 from sqlalchemy.orm import declarative_base, Session
 from sqlalchemy import Column, Integer, String, Numeric, DateTime, select
 
-import datetime
+from datetime import datetime, timedelta
 
 Base = declarative_base()
 
@@ -9,7 +9,7 @@ Base = declarative_base()
 class MoistureMeasurement(Base):
     __tablename__ = 'moisture_measurement'
     id = Column(Integer, primary_key=True)
-    plant = Column(String(100))
+    plant_id = Column(Integer)
     moisture_level = Column(Numeric)
     timestamp = Column(DateTime)
 
@@ -17,18 +17,22 @@ class MoistureMeasurement(Base):
         return "<MoistureMeasurement(plant='%s', moisture_level='%.1f', timestamp='%s')>" % (
             self.plant, self.moisture_level, self.timestamp)
 
-
 class MoistureMeasurementRepository:
     def __init__(self, engine):
         self.engine = engine
 
-    def save_moisture_measurement(self, plant, measurement):
+    def save_moisture_measurement(self, plant_id, measurement):
         with Session(self.engine) as session:
-            current_measurement = MoistureMeasurement(plant=plant, moisture_level=measurement, timestamp=datetime.datetime.now())
+            current_measurement = MoistureMeasurement(plant_id=plant_id, moisture_level=measurement, timestamp=datetime.now())
             session.add(current_measurement)
             session.commit()
 
-    def get_history(self, plant_name):
+    def get_history(self, plant_id, fromTimestamp, toTimestamp):
         with Session(self.engine) as session:
-            return session.execute(select(MoistureMeasurement).where(MoistureMeasurement.plant == plant_name)).scalars().all()
 
+            if fromTimestamp is None:
+                fromTimestamp = datetime.today() - timedelta(days=1)
+            if toTimestamp is None:
+                toTimestamp = datetime.today()
+
+            return session.execute(select(MoistureMeasurement).where(MoistureMeasurement.plant_id == plant_id, MoistureMeasurement.timestamp.between(fromTimestamp, toTimestamp))).scalars().all()
