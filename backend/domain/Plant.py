@@ -1,5 +1,5 @@
 from sqlalchemy.orm import declarative_base, Session
-from sqlalchemy import Column, Integer, String, Boolean, select
+from sqlalchemy import Column, Integer, String, Boolean, Numeric, select
 
 from gpio.MoistureSensor import MoistureSensor
 from gpio.Pump import Pump
@@ -17,6 +17,7 @@ class Plant(Base):
     check_state = Column(String(50))
     watering_start_limit = Column(Integer)
     watering_stop_limit = Column(Integer)
+    watering_duration = Column(Numeric)
 
     def __repr__(self):
         return "<Plant(id='%f', name='%s', check_enabled='%s', check_state='%s')>" % (

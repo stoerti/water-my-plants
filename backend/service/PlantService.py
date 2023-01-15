@@ -1,15 +1,16 @@
-from flask.logging import logging
+from logging import Logger, getLogger
 
 from gpio.MoistureSensor import MoistureSensor
 from gpio.Pump import Pump
 
-log = logging.getLogger("PlantService")
 
 class PlantService:
+    log = getLogger("PlantService")
 
-    def __init__(self, plant_repository, moisture_measurement_repository, initial_plants):
+    def __init__(self, plant_repository, moisture_measurement_repository, watering_action_repostory, initial_plants):
         self.plant_repository = plant_repository
         self.moisture_measurement_repository = moisture_measurement_repository
+        self.watering_action_repostory = watering_action_repostory
         self.plants = {}
 
         for plant in initial_plants:
@@ -32,12 +33,12 @@ class PlantService:
             if plant.check_state == 'OBSERVE':
                 if plant.watering_start_limit < value:
                     print("Plant %s - too dry, start watering" % (plant.name))
-                    plant.water_plant(1.0)
+                    self.water_plant(plant.name, plant.watering_duration)
                     self.set_plant_check_state(plant.id, 'WATERING')
             elif plant.check_state == 'WATERING':
                 if plant.watering_stop_limit < value:
                     print("Plant %s - still in watering mode" % (plant.name))
-                    plant.water_plant(1.0)
+                    self.water_plant(plant.name, plant.watering_duration)
                 else:
                     print("Plant %s - above watering threshold, stopping and switch to observe mode" % (plant.name))
                     self.set_plant_check_state(plant.id, 'OBSERVE')
@@ -48,6 +49,7 @@ class PlantService:
         plant = self.plants[plant_name]
 
         value = plant.get_moisture_level()
+        print("Moisture measurement for plant %s: %d" % (plant_name, value))
 
         if log:
             self.moisture_measurement_repository.save_moisture_measurement(plant.id, value)
@@ -56,6 +58,7 @@ class PlantService:
 
     def water_plant(self, plant_name, seconds):
         self.plants[plant_name].water_plant(seconds)
+        self.watering_action_repostory.save_watering_action(self.plants[plant_name].id, seconds)
 
     def get_moisture_history(self, plant_name, fromTimestamp, toTimestamp):
         return self.moisture_measurement_repository.get_history(self.plants[plant_name].id, fromTimestamp, toTimestamp)
@@ -86,6 +89,7 @@ class PlantWithSensors:
         self.check_state = plant.check_state
         self.watering_start_limit = plant.watering_start_limit
         self.watering_stop_limit = plant.watering_stop_limit
+        self.watering_duration = plant.watering_duration
 
     def cleanup_sensors(self):
         print("Plant %s - cleanup sensors" % (self.name))
